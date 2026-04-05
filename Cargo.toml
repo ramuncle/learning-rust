@@ -1,4 +1,10 @@
 [package]
-name = "add_one_plus_one"
+name = "learning-rust"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+futures = "0.3"
+anyhow = "1"
