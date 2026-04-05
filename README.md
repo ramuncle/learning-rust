@@ -11,6 +11,7 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 - **`futures::future::join_all`** — The dynamic version: takes a `Vec<Future>` and drives them all concurrently. Useful when the number of tasks is determined at runtime.
 - **Error handling with `anyhow`** — Provides `Result<T>` with rich context and the `?` operator for ergonomic propagation. `with_context` attaches human-readable messages to low-level errors.
 - **Bounded concurrency with `Arc<Semaphore>` + `tokio::spawn`** — Caps the number of simultaneous in-flight requests. Each spawned task acquires a permit before making a request; the permit is released automatically on drop. Essential for polite crawling and avoiding fd exhaustion.
+- **Retry with exponential backoff via `tokio::time::sleep`** — Generic `retry(config, || async { ... })` that accepts a factory closure (since Rust futures are consumed on `.await`), sleeps between attempts without blocking any thread, and clamps the backoff delay.
 
 ## Patterns at a Glance
 
@@ -20,6 +21,7 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 | Fixed concurrency | `tokio::join!` | Known-at-compile-time set |
 | Dynamic concurrency | `futures::join_all` | Runtime-determined list |
 | **Bounded concurrency** | `Arc<Semaphore>` + `tokio::spawn` | **Rate-limiting large lists** |
+| **Retry + backoff** | `tokio::time::sleep` + closure factory | Flaky networks / transient errors |
 
 ## How async/await Works in Rust
 
@@ -32,9 +34,13 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 
 ```
 src/
-  main.rs        — Entry point demonstrating all four async download patterns
+  main.rs        — Entry point demonstrating all five async download patterns
+  lib.rs         — Public API re-exports (for integration tests)
   downloader.rs  — Reusable download_text() and download_bytes() functions
   bounded.rs     — Bounded concurrency via Arc<Semaphore> + tokio::spawn
+  retry.rs       — Generic retry() with exponential backoff + RetryConfig
+tests/
+  downloads_test.rs — 7 integration tests covering all patterns
 ```
 
 ## Running
