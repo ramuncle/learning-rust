@@ -1,0 +1,24 @@
+[package]
+name = "async-downloads"
+version = "0.1.0"
+edition = "2021"
+description = "Learning async HTTP downloads in Rust with tokio + reqwest"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["stream"] }
+futures = "0.3"
+anyhow = "1"
+indicatif = "0.17"
+
+[[bin]]
+name = "sequential"
+path = "src/sequential.rs"
+
+[[bin]]
+name = "concurrent"
+path = "src/concurrent.rs"
+
+[[bin]]
+name = "with_progress"
+path = "src/with_progress.rs"
