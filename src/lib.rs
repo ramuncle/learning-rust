@@ -1,3 +1,5 @@
-//! Library entry point — exposes modules for integration tests.
+//! learning-rust — public API for integration tests.
+
 pub mod bounded;
 pub mod downloader;
+pub mod retry;

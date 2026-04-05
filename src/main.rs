@@ -1,13 +1,15 @@
 //! Async HTTP downloads with tokio + reqwest.
 //!
-//! This program demonstrates four core async patterns in Rust:
+//! This program demonstrates five core async patterns in Rust:
 //! 1. A single async download using `.await`
 //! 2. Concurrent downloads with `tokio::join!` (fixed number of futures)
 //! 3. Concurrent downloads with `futures::future::join_all` (dynamic list)
 //! 4. Bounded concurrency via `tokio::spawn` + `Semaphore` (rate-limiting)
+//! 5. Retry with exponential backoff via `tokio::time::sleep`
 
 mod bounded;
 mod downloader;
+mod retry;
 
 use anyhow::Result;
 
@@ -79,6 +81,22 @@ async fn main() -> Result<()> {
     // control. Each spawned task acquires a permit; at most N run at once.
     println!("\n=== Bounded concurrency (Semaphore, max 2 in-flight) ===");
     bounded::run_demo().await?;
+
+    // ── 6. Retry with exponential backoff ──────────────────────────
+    // Real networks are flaky. A proper downloader retries on transient
+    // errors using exponential backoff so it doesn't hammer a struggling
+    // server. `tokio::time::sleep` keeps the wait fully async.
+    println!("\n=== Retry with exponential backoff ===");
+    let cfg = retry::RetryConfig {
+        max_attempts: 3,
+        base_delay: std::time::Duration::from_millis(100),
+        backoff_factor: 2.0,
+        max_delay: std::time::Duration::from_secs(5),
+    };
+    match retry::download_text_with_retry("https://httpbin.org/get", cfg).await {
+        Ok(body) => println!("Retry download OK — {} bytes", body.len()),
+        Err(e) => eprintln!("Retry download failed: {e:#}"),
+    }
 
     println!("\nAll downloads complete!");
     Ok(())
