@@ -10,6 +10,16 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 - **`tokio::join!`** — Runs a fixed set of futures concurrently within the same task. All futures are polled in parallel; the macro returns when every one completes.
 - **`futures::future::join_all`** — The dynamic version: takes a `Vec<Future>` and drives them all concurrently. Useful when the number of tasks is determined at runtime.
 - **Error handling with `anyhow`** — Provides `Result<T>` with rich context and the `?` operator for ergonomic propagation. `with_context` attaches human-readable messages to low-level errors.
+- **Bounded concurrency with `Arc<Semaphore>` + `tokio::spawn`** — Caps the number of simultaneous in-flight requests. Each spawned task acquires a permit before making a request; the permit is released automatically on drop. Essential for polite crawling and avoiding fd exhaustion.
+
+## Patterns at a Glance
+
+| Pattern | API | Best for |
+|---|---|---|
+| Single download | `async fn` + `.await` | One request |
+| Fixed concurrency | `tokio::join!` | Known-at-compile-time set |
+| Dynamic concurrency | `futures::join_all` | Runtime-determined list |
+| **Bounded concurrency** | `Arc<Semaphore>` + `tokio::spawn` | **Rate-limiting large lists** |
 
 ## How async/await Works in Rust
 
@@ -22,8 +32,9 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 
 ```
 src/
-  main.rs        — Entry point with three async download patterns
+  main.rs        — Entry point demonstrating all four async download patterns
   downloader.rs  — Reusable download_text() and download_bytes() functions
+  bounded.rs     — Bounded concurrency via Arc<Semaphore> + tokio::spawn
 ```
 
 ## Running

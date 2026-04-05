@@ -1,10 +1,12 @@
 //! Async HTTP downloads with tokio + reqwest.
 //!
-//! This program demonstrates three core async patterns in Rust:
+//! This program demonstrates four core async patterns in Rust:
 //! 1. A single async download using `.await`
 //! 2. Concurrent downloads with `tokio::join!` (fixed number of futures)
 //! 3. Concurrent downloads with `futures::future::join_all` (dynamic list)
+//! 4. Bounded concurrency via `tokio::spawn` + `Semaphore` (rate-limiting)
 
+mod bounded;
 mod downloader;
 
 use anyhow::Result;
@@ -70,6 +72,13 @@ async fn main() -> Result<()> {
     println!("\n=== Byte download ===");
     let bytes = downloader::download_bytes("https://httpbin.org/bytes/256").await?;
     println!("Downloaded {} raw bytes", bytes.len());
+
+    // ── 5. Bounded concurrency with Semaphore ──────────────────────
+    // Real-world downloads often need a cap: don't blast 100 requests
+    // simultaneously. Arc<Semaphore> + tokio::spawn gives fine-grained
+    // control. Each spawned task acquires a permit; at most N run at once.
+    println!("\n=== Bounded concurrency (Semaphore, max 2 in-flight) ===");
+    bounded::run_demo().await?;
 
     println!("\nAll downloads complete!");
     Ok(())
