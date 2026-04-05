@@ -10,6 +10,8 @@
 mod bounded;
 mod downloader;
 mod retry;
+mod streaming;
+mod timeout;
 
 use anyhow::Result;
 
@@ -97,6 +99,18 @@ async fn main() -> Result<()> {
         Ok(body) => println!("Retry download OK — {} bytes", body.len()),
         Err(e) => eprintln!("Retry download failed: {e:#}"),
     }
+
+    // ── 7. Timeouts ────────────────────────────────────────────────
+    // Per-request timeouts guard against hung connections.
+    // A global deadline wraps the entire batch.
+    println!("\n=== Timeouts (tokio::time::timeout) ===");
+    timeout::run_demo().await?;
+
+    // ── 8. Streaming with progress ─────────────────────────────────
+    // Stream large responses chunk-by-chunk instead of buffering in memory.
+    // Print download progress as each chunk arrives.
+    println!("\n=== Streaming downloads with progress ===");
+    streaming::run_demo().await?;
 
     println!("\nAll downloads complete!");
     Ok(())

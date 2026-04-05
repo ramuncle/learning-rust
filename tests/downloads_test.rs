@@ -9,6 +9,8 @@
 use learning_rust::bounded::download_bounded;
 use learning_rust::downloader::{download_bytes, download_text};
 use learning_rust::retry::{download_text_with_retry, RetryConfig};
+use learning_rust::streaming::stream_to_memory_with_progress;
+use learning_rust::timeout::{download_many_with_timeout, download_with_timeout};
 use std::time::Duration;
 
 // ── single download ───────────────────────────────────────────────────────────
@@ -100,4 +102,67 @@ async fn test_retry_exhausts_attempts_on_bad_url() {
     };
     let result = download_text_with_retry("https://httpbin.org/status/503", cfg).await;
     assert!(result.is_err(), "should fail after exhausting retries");
+}
+
+// ── timeout ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_timeout_succeeds_within_deadline() {
+    let result = download_with_timeout(
+        "https://jsonplaceholder.typicode.com/todos/1",
+        Duration::from_secs(5),
+    )
+    .await;
+    assert!(result.is_ok(), "request should complete within 5s");
+    let body = result.unwrap();
+    assert!(!body.is_empty());
+}
+
+#[tokio::test]
+async fn test_timeout_fires_on_slow_response() {
+    // httpbin /delay/3 sleeps 3 seconds. 500ms deadline should always expire.
+    let result =
+        download_with_timeout("https://httpbin.org/delay/3", Duration::from_millis(500)).await;
+    assert!(result.is_err(), "should time out");
+    let msg = format!("{:#}", result.unwrap_err());
+    assert!(
+        msg.contains("timed out"),
+        "error should mention timeout, got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn test_timeout_batch_all_complete() {
+    let urls = [
+        "https://jsonplaceholder.typicode.com/todos/1",
+        "https://jsonplaceholder.typicode.com/todos/2",
+    ];
+    let results = download_many_with_timeout(&urls, Duration::from_secs(5)).await;
+    assert_eq!(results.len(), 2);
+    for (url, result) in &results {
+        assert!(result.is_ok(), "download of {url} should succeed");
+    }
+}
+
+// ── streaming ─────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_stream_to_memory_returns_correct_byte_count() {
+    // httpbin /bytes/256 returns exactly 256 random bytes.
+    let body = stream_to_memory_with_progress("https://httpbin.org/bytes/256")
+        .await
+        .expect("streaming download should succeed");
+    assert_eq!(body.len(), 256, "should receive exactly 256 bytes");
+}
+
+#[tokio::test]
+async fn test_stream_to_memory_json_content() {
+    let body = stream_to_memory_with_progress(
+        "https://jsonplaceholder.typicode.com/posts/1",
+    )
+    .await
+    .expect("streaming download should succeed");
+
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("userId"), "response should be a JSON post");
 }

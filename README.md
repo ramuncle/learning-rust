@@ -12,6 +12,8 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 - **Error handling with `anyhow`** — Provides `Result<T>` with rich context and the `?` operator for ergonomic propagation. `with_context` attaches human-readable messages to low-level errors.
 - **Bounded concurrency with `Arc<Semaphore>` + `tokio::spawn`** — Caps the number of simultaneous in-flight requests. Each spawned task acquires a permit before making a request; the permit is released automatically on drop. Essential for polite crawling and avoiding fd exhaustion.
 - **Retry with exponential backoff via `tokio::time::sleep`** — Generic `retry(config, || async { ... })` that accepts a factory closure (since Rust futures are consumed on `.await`), sleeps between attempts without blocking any thread, and clamps the backoff delay.
+- **`tokio::time::timeout`** — Wraps any future with a deadline. If the future doesn't complete in time, it is cancelled (dropped) and `Err(Elapsed)` is returned. Covers single requests, per-request timeouts in a batch, and a global deadline over an entire batch.
+- **Streaming with `bytes_stream()` + progress** — `response.bytes_stream()` yields chunks as they arrive, enabling constant-memory downloads and live progress output. Pairs with `tokio::fs::File` + `AsyncWriteExt::write_all` for fully async disk I/O.
 
 ## Patterns at a Glance
 
@@ -22,6 +24,8 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 | Dynamic concurrency | `futures::join_all` | Runtime-determined list |
 | **Bounded concurrency** | `Arc<Semaphore>` + `tokio::spawn` | **Rate-limiting large lists** |
 | **Retry + backoff** | `tokio::time::sleep` + closure factory | Flaky networks / transient errors |
+| **Timeouts** | `tokio::time::timeout` | Per-request & global deadlines |
+| **Streaming** | `bytes_stream()` + `AsyncWriteExt` | Large files, progress bars |
 
 ## How async/await Works in Rust
 
@@ -34,13 +38,15 @@ Exploring async/await in Rust with **tokio** and **reqwest**.
 
 ```
 src/
-  main.rs        — Entry point demonstrating all five async download patterns
+  main.rs        — Entry point demonstrating all seven async download patterns
   lib.rs         — Public API re-exports (for integration tests)
   downloader.rs  — Reusable download_text() and download_bytes() functions
   bounded.rs     — Bounded concurrency via Arc<Semaphore> + tokio::spawn
   retry.rs       — Generic retry() with exponential backoff + RetryConfig
+  timeout.rs     — Per-request & global deadlines via tokio::time::timeout
+  streaming.rs   — Chunk-by-chunk streaming with progress + async file I/O
 tests/
-  downloads_test.rs — 7 integration tests covering all patterns
+  downloads_test.rs — 13 integration tests covering all patterns
 ```
 
 ## Running
